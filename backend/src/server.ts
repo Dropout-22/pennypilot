@@ -39,6 +39,20 @@ app.get("/api/health", (_req, res) => {
     });
 });
 
+app.get("/api/categories", async (_req, res) => {
+  try {
+    const categories = await prisma.category.findMany();
+
+    res.status(200).json(categories);
+  } catch (error) {
+    console.error("Failed to fetch categories:", error);
+
+    res.status(500).json({
+      error: "Failed to retrieve categories",
+    });
+  }
+});
+
 // Start server
 const startServer = async () => {
     try {
