@@ -53,7 +53,9 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   User: 'User',
   Category: 'Category',
-  Transaction: 'Transaction'
+  Transaction: 'Transaction',
+  Session: 'Session',
+  RefreshToken: 'RefreshToken'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -109,6 +111,31 @@ export const TransactionScalarFieldEnum = {
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const RefreshTokenScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type RefreshTokenScalarFieldEnum = (typeof RefreshTokenScalarFieldEnum)[keyof typeof RefreshTokenScalarFieldEnum]
 
 
 export const SortOrder = {

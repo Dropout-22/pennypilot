@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { prisma } from "./lib/prisma.js";
 import authRoutes from "./routes/auth.routes.js";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(cookieParser());
 
 // Rate limiting
 const limiter = rateLimit({

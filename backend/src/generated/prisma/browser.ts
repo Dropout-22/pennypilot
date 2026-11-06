@@ -32,3 +32,13 @@ export type Category = Prisma.CategoryModel
  * 
  */
 export type Transaction = Prisma.TransactionModel
+/**
+ * Model Session
+ * 
+ */
+export type Session = Prisma.SessionModel
+/**
+ * Model RefreshToken
+ * 
+ */
+export type RefreshToken = Prisma.RefreshTokenModel
