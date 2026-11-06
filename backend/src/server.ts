@@ -39,9 +39,27 @@ app.get("/api/health", (_req, res) => {
     });
 });
 
-app.get("/api/categories", async (_req, res) => {
+app.get("/api/categories", async (req, res) => {
   try {
-    const categories = await prisma.category.findMany();
+    const { type } = req.query;
+
+    if (
+      type !== undefined &&
+      type !== "INCOME" &&
+      type !== "EXPENSE"
+    ) {
+      res.status(400).json({
+        error: "Invalid category type. Use INCOME or EXPENSE.",
+      });
+      return;
+    }
+
+    const categories = await prisma.category.findMany({
+      where: type ? { type } : {},
+      orderBy: {
+        name: "asc",
+      },
+    });
 
     res.status(200).json(categories);
   } catch (error) {
