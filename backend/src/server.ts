@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { prisma } from "./lib/prisma.js";
+import authRoutes from "./routes/auth.routes.js";
 
 dotenv.config();
 
@@ -29,6 +30,9 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
+
+// Authentication routes
+app.use("/api/auth", authRoutes);
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
