@@ -108,3 +108,164 @@ export const loginUser = async (input: LoginInput) => {
         refreshToken,
     };
 };
+
+export const refreshUserSession = async (refreshToken: string) => {
+    // 1. Hash the refresh token received from the client
+    const tokenHash = hashRefreshToken(refreshToken);
+    const now = new Date();
+
+    // 2. Generate the replacement refresh token
+    const newRefreshToken = generateRefreshToken();
+    const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+
+    // 3. Validate and rotate the token inside a transaction
+    const result = await prisma.$transaction(async (tx) => {
+        const storedToken = await tx.refreshToken.findUnique({
+            where: {
+                tokenHash,
+            },
+            include: {
+                session: true,
+            },
+        });
+
+        // Token does not exist
+        if (!storedToken) {
+            return { status: "INVALID" as const };
+        }
+
+        // Previously used token: possible token theft or replay
+        if (storedToken.usedAt) {
+            await tx.session.updateMany({
+                where: {
+                    id: storedToken.sessionId,
+                    revokedAt: null,
+                },
+                data: {
+                    revokedAt: now,
+                },
+            });
+
+            await tx.refreshToken.updateMany({
+                where: {
+                    sessionId: storedToken.sessionId,
+                    revokedAt: null,
+                },
+                data: {
+                    revokedAt: now,
+                },
+            });
+
+            return { status: "REUSED" as const };
+        }
+
+        // Reject expired or revoked tokens and sessions
+        if (
+            storedToken.revokedAt ||
+            storedToken.expiresAt <= now ||
+            storedToken.session.revokedAt ||
+            storedToken.session.expiresAt <= now
+        ) {
+            return { status: "INVALID" as const };
+        }
+
+        // 4. Confirm that the session is still active
+        const activeSession = await tx.session.updateMany({
+            where: {
+                id: storedToken.sessionId,
+                revokedAt: null,
+                expiresAt: {
+                    gt: now,
+                },
+            },
+            data: {
+                updatedAt: now,
+            },
+        });
+
+        if (activeSession.count !== 1) {
+            return { status: "INVALID" as const };
+        }
+
+        // 5. Atomically claim the old refresh token
+        const claimedToken = await tx.refreshToken.updateMany({
+            where: {
+                id: storedToken.id,
+                usedAt: null,
+                revokedAt: null,
+                expiresAt: {
+                    gt: now,
+                },
+            },
+            data: {
+                usedAt: now,
+            },
+        });
+
+        if (claimedToken.count !== 1) {
+            // Another request may have already rotated this token
+            const latestToken = await tx.refreshToken.findUnique({
+                where: {
+                    id: storedToken.id,
+                },
+            });
+
+            if (latestToken?.usedAt) {
+                await tx.session.updateMany({
+                    where: {
+                        id: storedToken.sessionId,
+                        revokedAt: null,
+                    },
+                    data: {
+                        revokedAt: now,
+                    },
+                });
+
+                await tx.refreshToken.updateMany({
+                    where: {
+                        sessionId: storedToken.sessionId,
+                        revokedAt: null,
+                    },
+                    data: {
+                        revokedAt: now,
+                    },
+                });
+
+                return { status: "REUSED" as const };
+            }
+
+            return { status: "INVALID" as const };
+        }
+
+        // 6. Store the replacement refresh token hash
+        await tx.refreshToken.create({
+            data: {
+                sessionId: storedToken.sessionId,
+                tokenHash: newRefreshTokenHash,
+                expiresAt: storedToken.session.expiresAt,
+            },
+        });
+
+        // 7. Generate a new access token
+        const accessToken = await generateAccessToken(
+            storedToken.session.userId,
+            storedToken.sessionId
+        );
+
+        return {
+            status: "SUCCESS" as const,
+            accessToken,
+            refreshToken: newRefreshToken,
+        };
+    });
+
+    // 8. Return the result
+    if (result.status !== "SUCCESS") {
+        return null;
+    }
+
+    return {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+    };
+};

@@ -2,7 +2,11 @@ import { Router } from "express";
 import { Prisma } from "../generated/prisma/client.js";
 
 import { loginSchema, registerSchema } from "../schemas/auth.js";
-import { loginUser, registerUser } from "../services/auth.service.js";
+import {
+    loginUser,
+    refreshUserSession,
+    registerUser,
+} from "../services/auth.service.js";
 
 const router = Router();
 
@@ -96,6 +100,58 @@ router.post("/login", async (req, res) => {
 
         res.status(500).json({
             error: "Failed to log in.",
+        });
+    }
+});
+
+router.post("/refresh", async (req, res) => {
+    // 1. Read the refresh token from the HttpOnly cookie
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken || typeof refreshToken !== "string") {
+        res.status(401).json({
+            error: "Refresh token is missing.",
+        });
+        return;
+    }
+
+    try {
+        // 2. Validate and rotate the refresh token
+        const auth = await refreshUserSession(refreshToken);
+
+        if (!auth) {
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                path: "/api/auth",
+            });
+
+            res.status(401).json({
+                error: "Invalid or expired refresh token.",
+            });
+            return;
+        }
+
+        // 3. Set the replacement refresh token
+        res.cookie("refreshToken", auth.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/api/auth",
+            maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
+
+        // 4. Return the new access token
+        res.status(200).json({
+            message: "Token refreshed successfully.",
+            accessToken: auth.accessToken,
+        });
+    } catch (error) {
+        console.error("Token refresh failed:", error);
+
+        res.status(500).json({
+            error: "Failed to refresh token.",
         });
     }
 });
