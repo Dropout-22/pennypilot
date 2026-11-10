@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { prisma } from "./lib/prisma.js";
 import authRoutes from "./routes/auth.routes.js";
 import cookieParser from "cookie-parser";
+import transactionRoutes from "./routes/transaction.routes.js";
 
 dotenv.config();
 
@@ -35,6 +36,9 @@ app.use(limiter);
 
 // Authentication routes
 app.use("/api/auth", authRoutes);
+
+// Transaction routes
+app.use("/api/transactions", transactionRoutes);
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
